@@ -1,38 +1,58 @@
 const express = require('express');
-
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 const port = 5000;
+const uri = "mongodb+srv://admin:11122004@cluster0.fv5recd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 const user = require('./user.json');
 
 const cors = require('cors');
 app.use(cors());
 
+const mongoose = require('mongoose');
+// const dbConnect = require('./db_connect.js');
+
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-    res.json(user);
-}); 
-
-app.post('/user', (req, res) => {
-    console.log(req.body); 
-    const name = req.body.name;
-    const id = req.body.id;
-    if (!name || !id) {
-        return res.status(400).json({ error: 'Name and ID are required' });
+// Tạo hàm lấy dữ liệu từ MongoDB
+async function getDataFromDB() {
+    try {
+      // Kết nối MongoDB
+      await client.connect();
+  
+      // Chọn database và collection
+      const database = client.db("Movies_Store"); // Thay bằng tên database của bạn
+      const collection = database.collection("movies"); // Thay bằng tên collection của bạn
+  
+      // Lấy tất cả dữ liệu trong collection
+      const movies = await collection.find({}).toArray(); 
+  
+      return movies;
+    } catch (err) {
+      console.error("Lỗi khi lấy dữ liệu:", err);
+      throw err;
+    } finally {
+      // Đảm bảo rằng client sẽ đóng kết nối khi xong
+      await client.close();
     }
-    res.json({ message: `Name: ${name}, ID: ${id}` });
-});
+}
 
-app.post('/adduser', (req, res) => {
-    const id = req.body.id;
-    const name = req.body.name;
-    if (!id || !name) {
-        return res.status(400).json({ error: 'ID and Name are required' });
+// Tạo route để lấy dữ liệu từ MongoDB
+app.get('/api/movies', async (req, res) => {
+    try {
+      const movies = await getDataFromDB();
+      res.status(200).json(movies);  // Trả dữ liệu dưới dạng JSON
+    } catch (err) {
+      res.status(500).send("Lỗi khi lấy dữ liệu từ MongoDB");
     }
-    user.push({ id, name });
-    res.json({message: 'User added successfully', user: { id, name } });
 });
 
 app.listen(port, () => {
